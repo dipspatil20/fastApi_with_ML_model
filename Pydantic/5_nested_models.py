@@ -29,6 +29,7 @@ print(patient1.address.city)
 temp = patient1.model_dump() #pydantic model object convert to Dictionary
 temp2 = patient1.model_dump(include=['name'])
 temp3 = patient1.model_dump(exclude=['name', 'gender'])
+temp = patient1.model_dump(exclude={'address':['state']}) 
 temp1 = patient1.model_dump_json() 
 print(temp2)
 print(type(temp))
