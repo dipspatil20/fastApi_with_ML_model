@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Path, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, computed_field
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Optional
 import json
 
 app = FastAPI()
@@ -34,6 +34,15 @@ class Patient(BaseModel):
         else:
             return 'Obese'
 
+#pydantic model for update
+class PatientUpdate(BaseModel):
+    name: Annotated[Optional[str], Field(default=None)]
+    city: Annotated[Optional[str], Field(default=None)]
+    age: Annotated[Optional[int], Field(default=None, gt=0)]
+    gender: Annotated[Optional[Literal['male', 'female']], Field(default=None)]
+    height: Annotated[Optional[float], Field(default=None, gt=0)]
+    weight: Annotated[Optional[float], Field(default=None, gt=0)]
+
 
 
 def load_data():
@@ -62,7 +71,7 @@ def view():
     return data
 
 @app.get('/patient/{patient_id}')
-def view_patient(patient_id: str = Path(..., description='ID of the patient in the DB', example='P001')):
+def view_patient(patient_id: str = Path(..., description='ID of the patient in the DB', examples='P001')):
     #load all data
     data = load_data()
 
@@ -110,6 +119,55 @@ def create_patient(patient: Patient):
 
     #return Response
     return JSONResponse(status_code=201, content={'message':'patient created successfully'})
+
+#edit endpoint
+@app.put('/edit/{patient_id}')
+def update_patient(patient_id: str, patient_update:PatientUpdate):
+    #load data
+    data = load_data()
+    
+    #check update data is exixt or not
+    if patient_id not in data:
+        raise HTTPException(status_code=404, detail='Patient not found')
+     
+    #extract the data of given patient id
+    existing_patient_info = data[patient_id]
+    
+    #get new data from patient_update and set it in existing_patient_info
+    #convert in disctionary
+    updated_patient_info = patient_update.model_dump(exclude_unset=True)
+
+    for key, value in updated_patient_info.items():
+        existing_patient_info[key] = value
+    
+    #new pydantic model create so that bmi and verdice will calculated and
+    existing_patient_info['id'] = patient_id
+    patient_pydantic_obj = Patient(**existing_patient_info)
+   
+    #  then this convert into the dict
+    existing_patient_info = patient_pydantic_obj.model_dump(exclude='id')
+
+    #add this dict 
+    data[patient_id] = existing_patient_info
+
+    #save data
+    save_data(data)
+
+    return JSONResponse (status_code=200, content={'message':'patient Updated'})
+
+#delete endpoint
+@app.delete('/delete/{patient_id}')
+def delete_patient(patient_id:str):
+    
+    data =load_data()
+    if patient_id not in data:
+        raise HTTPException(status_code=404, detail='Patient not found')
+    
+    del data[patient_id]
+
+    save_data(data)
+
+    return JSONResponse(status_code=200, content={'message':'patient deleted'})
 
 #to run this file use this command
 # ---- uvicorn main:app --reload
